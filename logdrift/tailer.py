@@ -28,9 +28,22 @@ class LogTailer:
         return f
 
     def tail(self) -> Generator[dict, None, None]:
-        """Generator that yields parsed log line dicts as they appear."""
+        """Generator that yields parsed log line dicts as they appear.
+
+        Handles file rotation by reopening the file if it is replaced or
+        truncated (i.e. the current seek position is beyond the file size).
+        """
         with self._open_file() as f:
             while True:
+                # Detect file rotation or truncation
+                try:
+                    current_pos = f.tell()
+                    file_size = os.path.getsize(self.filepath)
+                    if file_size < current_pos:
+                        f.seek(0)
+                except OSError:
+                    pass
+
                 line = f.readline()
                 if not line:
                     time.sleep(self.poll_interval)
